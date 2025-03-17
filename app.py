@@ -13,7 +13,7 @@ UPLOAD_FOLDER = 'static/photos'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-BASE_URL = "https://monprojet-j8sc.onrender.com"
+BASE_URL = "https://projet-flrh.onrender.com"
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
