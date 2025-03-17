@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Génération de QR Codes</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #4CAF50;
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            width: 50%;
+            margin: auto;
+        }
+        form select, form button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        form button {
+            background: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            transition: 0.3s;
+        }
+        form button:hover {
+            background: #45a049;
+        }
+        .qr-container {
+            margin-top: 20px;
+            padding: 10px;
+            background: #fff;
+            display: inline-block;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .qr-container img {
+            width: 200px;
+            height: 200px;
+        }
+        .back-btn {
+            display: inline-block;
+            margin-top: 20px;
+            background: #e74c3c;
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .back-btn:hover {
+            background: #c0392b;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Génération de QR Codes</h1>
+
+    <div class="container">
+        <form action="{{ url_for('generate_qr') }}" method="post">
+            <select name="nom_eleve" required>
+                <option value="">Sélectionnez un élève</option>
+                {% for eleve in eleves %}
+                    <option value="{{ eleve[0] }}">{{ eleve[0] }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Générer le QR Code</button>
+        </form>
+
+        {% if qr_code %}
+        <div class="qr-container">
+            <h3>QR Code pour {{ nom_eleve }}</h3>
+            <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
+        </div>
+        {% endif %}
+    </div>
+
+    <a href="{{ url_for('admin') }}" class="back-btn">Retour à l'administration</a>
+
+</body>
+</html>

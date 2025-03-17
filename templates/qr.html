@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        img {
+            display: block;
+            margin: 20px auto;
+            border: 5px solid #ccc;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        p {
+            text-align: center;
+            font-size: 18px;
+            color: #555;
+        }
+
+        a {
+            display: block;
+            text-align: center;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin: 20px auto;
+            width: 100px;
+        }
+
+        a:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>QR Code de {{ nom_eleve }}</h1>
+    <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
+    <p>Horaires autorisés : {{ horaires }}</p>
+    <a href="/">Retour</a>
+</body>
+</html>
+

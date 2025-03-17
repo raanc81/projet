@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espace Admin</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            padding: 20px 0;
+            margin: 0;
+            background-color: #ffffff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .logout-btn {
+            text-align: right;
+            margin-bottom: 20px;
+            padding-right: 20px;
+        }
+        .logout-btn a {
+            background-color: #e74c3c;
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .logout-btn a:hover {
+            background-color: #c0392b;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        form input, form button, form textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        form button {
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.3s;
+        }
+        form button:hover {
+            background-color: #45a049;
+        }
+        .form-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .form-row input {
+            width: 48%;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #ccc;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        td img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+        .generate-qr-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .generate-qr-btn:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Gestion des élèves</h1>
+
+    <div class="logout-btn">
+        <a href="{{ url_for('logout') }}">Se déconnecter</a>
+    </div>
+
+    <div class="container">
+        <h2>Liste des élèves</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Nom de l'élève</th>
+                    <th>Photo</th>
+                    <th>Emploi du temps</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for eleve in eleves %}
+                    <tr>
+                        <td>{{ eleve[0] }}</td>
+                        <td><img src="{{ eleve[1] }}" alt="Photo de l'élève"></td>
+                        <td>{{ eleve[2] }}</td>
+                        <td>
+                            <a href="{{ url_for('edit_eleve', nom_eleve=eleve[0]) }}" class="generate-qr-btn">Modifier</a>
+                            <form action="{{ url_for('delete_eleve', nom_eleve=eleve[0]) }}" method="post" style="display:inline;">
+                                <button type="submit" class="delete-btn">Supprimer</button>
+                            </form>
+                            <form action="{{ url_for('generate_qr') }}" method="post" style="display:inline;">
+                                <input type="hidden" name="nom_eleve" value="{{ eleve[0] }}">
+                                <button type="submit" class="generate-qr-btn">Générer QR Code</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Ajouter un nouvel élève</h2>
+        <form action="/add_eleve" method="post" enctype="multipart/form-data">
+            <input type="text" name="nom_eleve" placeholder="Nom de l'élève" required>
+
+            <h3>Emploi du temps</h3>
+            <div class="form-row">
+                <input type="text" name="lundi" placeholder="Lundi" required>
+                <input type="text" name="mardi" placeholder="Mardi" required>
+            </div>
+            <div class="form-row">
+                <input type="text" name="mercredi" placeholder="Mercredi" required>
+                <input type="text" name="jeudi" placeholder="Jeudi" required>
+            </div>
+            <div class="form-row">
+                <input type="text" name="vendredi" placeholder="Vendredi" required>
+            </div>
+
+            <h3>Photo de l'élève (facultatif)</h3>
+            <input type="file" name="photo" accept="image/*">
+
+            <button type="submit">Ajouter l'élève</button>
+        </form>
+    </div>
+
+</body>
+</html>

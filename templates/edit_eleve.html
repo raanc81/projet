@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modifier l'emploi du temps de {{ nom_eleve }}</title>
+    <style>
+        /* Global Styles */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        /* Container to center content */
+        .container {
+            width: 60%;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Heading style */
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+
+        /* Form Styles */
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        div {
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+
+        /* Submit Button Style */
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px;
+            font-size: 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* Link style for navigation */
+        a {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            text-decoration: none;
+            color: #4CAF50;
+            font-size: 16px;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Modifier l'emploi du temps de {{ nom_eleve }}</h1>
+
+        <!-- Formulaire de modification de l'emploi du temps -->
+        <form action="{{ url_for('edit_eleve', nom_eleve=nom_eleve) }}" method="POST">
+            <div>
+                <label for="lundi">Lundi:</label>
+                <input type="text" id="lundi" name="lundi" value="{{ emploi_du_temps['Lundi'] }}" required>
+            </div>
+            <div>
+                <label for="mardi">Mardi:</label>
+                <input type="text" id="mardi" name="mardi" value="{{ emploi_du_temps['Mardi'] }}" required>
+            </div>
+            <div>
+                <label for="mercredi">Mercredi:</label>
+                <input type="text" id="mercredi" name="mercredi" value="{{ emploi_du_temps['Mercredi'] }}" required>
+            </div>
+            <div>
+                <label for="jeudi">Jeudi:</label>
+                <input type="text" id="jeudi" name="jeudi" value="{{ emploi_du_temps['Jeudi'] }}" required>
+            </div>
+            <div>
+                <label for="vendredi">Vendredi:</label>
+                <input type="text" id="vendredi" name="vendredi" value="{{ emploi_du_temps['Vendredi'] }}" required>
+            </div>
+
+            <button type="submit">Modifier</button>
+        </form>
+
+        <br>
+        <a href="{{ url_for('admin') }}">Retour à l'administration</a>
+    </div>
+</body>
+</html>
