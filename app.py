@@ -19,7 +19,7 @@ ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
 
-def update_db():
+def update_db() -> None:
     """ Vérifie et met à jour la base de données si nécessaire """
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
