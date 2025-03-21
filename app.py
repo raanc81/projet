@@ -1,3 +1,4 @@
+import psycopg2
 import os
 import sqlite3
 import qrcode
@@ -221,3 +222,4 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
