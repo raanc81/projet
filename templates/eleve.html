@@ -17,7 +17,6 @@
             border-radius: 10px;
             max-width: 600px;
             margin: auto;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
         .photo {
             width: 150px;
@@ -25,7 +24,6 @@
             border-radius: 50%;
             object-fit: cover;
             margin: 20px auto;
-            display: block;
         }
         .message {
             font-size: 24px;
@@ -33,26 +31,23 @@
             margin-top: 20px;
             color: {% if peut_sortir %}green{% else %}red{% endif %};
         }
-        .emploi {
-            margin-top: 30px;
-            font-size: 16px;
+        .emploi-du-temps {
             background-color: #eee;
+            border-radius: 10px;
             padding: 15px;
-            border-radius: 8px;
-            white-space: pre-wrap;
-        }
-        .btn-retour {
+            margin-top: 20px;
+            font-family: monospace;
+            text-align: left;
             display: inline-block;
-            margin-top: 30px;
-            padding: 10px 20px;
-            background-color: #007BFF;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            transition: background-color 0.3s ease;
         }
-        .btn-retour:hover {
-            background-color: #0056b3;
+        .btn {
+            display: inline-block;
+            margin-top: 25px;
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
         }
     </style>
 </head>
@@ -60,24 +55,22 @@
     <div class="container">
         <h1>Bonjour {{ nom }}</h1>
         {% if photo %}
-            <img src="{{ photo }}" class="photo" alt="Photo de {{ nom }}">
+            <img src="{{ photo }}" class="photo">
         {% endif %}
         <div class="message">
             {% if peut_sortir %}
-                Tu peux sortir
+                Tu peux sortir {% if heure_sortie %} (après {{ heure_sortie }}){% endif %}
             {% else %}
                 Tu ne peux pas sortir
             {% endif %}
         </div>
-
-        {% if emploi_du_temps %}
-        <div class="emploi">
+        <div class="emploi-du-temps">
             <strong>Emploi du temps :</strong><br>
-            {{ emploi_du_temps.replace(',', '\n') }}
+            {% for ligne in emploi_du_temps.split(',') %}
+                {{ ligne.strip() }}<br>
+            {% endfor %}
         </div>
-        {% endif %}
-
-        <a href="/" class="btn-retour">Scanner un autre QR</a>
+        <a href="{{ url_for('index') }}" class="btn">Scanner un autre QR</a>
     </div>
 </body>
 </html>
