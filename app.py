@@ -19,6 +19,7 @@ BASE_URL = "https://projet-flrh.onrender.com"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
+
 def update_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -36,11 +37,14 @@ def update_db():
     conn.commit()
     conn.close()
 
+
 update_db()
+
 
 @app.route('/')
 def index():
     return redirect(url_for('login'))
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -54,10 +58,12 @@ def login():
             flash("Identifiant ou mot de passe incorrect", "danger")
     return render_template('login.html')
 
+
 @app.route('/logout')
 def logout():
     session.pop('admin', None)
     return redirect(url_for('login'))
+
 
 @app.route('/admin')
 def admin():
@@ -69,6 +75,7 @@ def admin():
     eleves = cursor.fetchall()
     conn.close()
     return render_template('admin.html', eleves=eleves)
+
 
 @app.route('/add_eleve', methods=['POST'])
 def add_eleve():
@@ -91,6 +98,7 @@ def add_eleve():
     conn.close()
     return redirect(url_for('admin'))
 
+
 @app.route('/delete_eleve/<nom_eleve>', methods=['POST'])
 def delete_eleve(nom_eleve):
     if not session.get('admin'):
@@ -101,6 +109,7 @@ def delete_eleve(nom_eleve):
     conn.commit()
     conn.close()
     return redirect(url_for('admin'))
+
 
 @app.route('/edit_eleve/<nom_eleve>', methods=['GET', 'POST'])
 def edit_eleve(nom_eleve):
@@ -117,8 +126,10 @@ def edit_eleve(nom_eleve):
     cursor.execute("SELECT emploi_du_temps FROM eleves WHERE nom_eleve = ?", (nom_eleve,))
     emploi_du_temps = cursor.fetchone()[0]
     conn.close()
-    emploi_du_temps_dict = {jour.split(':')[0].strip(): jour.split(':')[1].strip() for jour in emploi_du_temps.split(',')}
+    emploi_du_temps_dict = {jour.split(':')[0].strip(): jour.split(':')[1].strip() for jour in
+                            emploi_du_temps.split(',')}
     return render_template('edit_eleve.html', nom_eleve=nom_eleve, emploi_du_temps=emploi_du_temps_dict)
+
 
 @app.route('/generate_qr', methods=['GET', 'POST'])
 def generate_qr():
@@ -149,6 +160,7 @@ def generate_qr():
     conn.close()
     return render_template('generate_qr.html', eleves=eleves)
 
+
 @app.route('/eleve/<nom_eleve>/<emploi_du_temps>')
 def afficher_eleve(nom_eleve, emploi_du_temps):
     emploi_du_temps = unquote(emploi_du_temps)
@@ -163,22 +175,40 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
 
     # Traitement de l'heure
     now = datetime.now()
-    jour = now.strftime('%A')
+    jour = now.strftime('%A')  # Ex: 'Monday'
+    jour_fr = {
+        "Monday": "Lundi",
+        "Tuesday": "Mardi",
+        "Wednesday": "Mercredi",
+        "Thursday": "Jeudi",
+        "Friday": "Vendredi",
+        "Saturday": "Samedi",
+        "Sunday": "Dimanche"
+    }
+    jour = jour_fr.get(jour, jour)
     heure = now.strftime('%H:%M')
-    emploi_du_temps_dict = {j.strip(): h.strip() for j, h in [item.split(':') for item in emploi_du_temps.split(',')]}
+
+    emploi_du_temps_dict = {j.strip(): h.strip() for j, h in
+                            [item.split(':', 1) for item in emploi_du_temps.split(',')]}
     heure_sortie = emploi_du_temps_dict.get(jour, None)
 
-    peut_sortir = False
+    peut_sortir = True
     if heure_sortie:
         try:
-            heure_actuelle = datetime.strptime(heure, '%H:%M')
-            heure_limite = datetime.strptime(heure_sortie, '%H:%M')
-            peut_sortir = heure_actuelle >= heure_limite
-        except ValueError:
-            pass
+            heure_actuelle = datetime.strptime(heure, '%H:%M').time()
+            horaires = heure_sortie.split()
+            for i in range(0, len(horaires), 2):
+                debut = datetime.strptime(horaires[i].replace('h', ':'), '%H:%M').time()
+                fin = datetime.strptime(horaires[i + 1].replace('h', ':'), '%H:%M').time()
+                if debut <= heure_actuelle <= fin:
+                    peut_sortir = False
+                    break
+        except Exception as e:
+            print("Erreur parsing horaires:", e)
 
     return render_template('eleve.html', nom=eleve[0], photo=eleve[1], emploi_du_temps=emploi_du_temps,
                            peut_sortir=peut_sortir)
+
 
 if __name__ == '__main__':
     app.run(debug=True)

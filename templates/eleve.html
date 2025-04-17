@@ -17,6 +17,7 @@
             border-radius: 10px;
             max-width: 600px;
             margin: auto;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
         .photo {
             width: 150px;
@@ -24,6 +25,7 @@
             border-radius: 50%;
             object-fit: cover;
             margin: 20px auto;
+            display: block;
         }
         .message {
             font-size: 24px;
@@ -31,13 +33,34 @@
             margin-top: 20px;
             color: {% if peut_sortir %}green{% else %}red{% endif %};
         }
+        .emploi {
+            margin-top: 30px;
+            font-size: 16px;
+            background-color: #eee;
+            padding: 15px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+        }
+        .btn-retour {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background-color 0.3s ease;
+        }
+        .btn-retour:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Bonjour {{ nom }}</h1>
         {% if photo %}
-            <img src="{{ photo }}" class="photo">
+            <img src="{{ photo }}" class="photo" alt="Photo de {{ nom }}">
         {% endif %}
         <div class="message">
             {% if peut_sortir %}
@@ -46,6 +69,15 @@
                 Tu ne peux pas sortir
             {% endif %}
         </div>
+
+        {% if emploi_du_temps %}
+        <div class="emploi">
+            <strong>Emploi du temps :</strong><br>
+            {{ emploi_du_temps.replace(',', '\n') }}
+        </div>
+        {% endif %}
+
+        <a href="/" class="btn-retour">Scanner un autre QR</a>
     </div>
 </body>
 </html>
