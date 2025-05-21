@@ -6,6 +6,7 @@ from io import BytesIO
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from urllib.parse import quote, unquote
 from datetime import datetime
+import re
 
 app = Flask(__name__)
 app.secret_key = 'ma_cle_secrete'
@@ -176,7 +177,6 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
     jour = jour_fr.get(jour, jour)
     heure_actuelle = now.strftime('%H:%M')
 
-    # Parsing de l'emploi du temps
     emploi_du_temps_dict = {}
     for item in emploi_du_temps.split(','):
         try:
@@ -190,10 +190,8 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
 
     if horaire_du_jour:
         try:
-            import re
             heure_now = datetime.strptime(heure_actuelle, '%H:%M').time()
-
-            # Extrait les paires d'horaires comme 08h00-10h00 ou 08h00 10h00
+            # Prend en charge les formats 08h00-10h00 ou 08h00 10h00
             horaires = re.findall(r'(\d{1,2}h\d{2})[-\s](\d{1,2}h\d{2})', horaire_du_jour)
             for debut_str, fin_str in horaires:
                 debut = datetime.strptime(debut_str.replace('h', ':'), '%H:%M').time()
