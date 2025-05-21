@@ -176,23 +176,34 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
     jour = jour_fr.get(jour, jour)
     heure_actuelle = now.strftime('%H:%M')
 
-    emploi_du_temps_dict = {j.strip(): h.strip() for j, h in
-                            [item.split(':', 1) for item in emploi_du_temps.split(',')]}
-    horaire_du_jour = emploi_du_temps_dict.get(jour)
+    # Parsing de l'emploi du temps
+    emploi_du_temps_dict = {}
+    for item in emploi_du_temps.split(','):
+        try:
+            jour_item, horaires = item.split(':', 1)
+            emploi_du_temps_dict[jour_item.strip()] = horaires.strip()
+        except ValueError:
+            continue
 
-    peut_sortir = True  # Par défaut, on peut sortir
+    horaire_du_jour = emploi_du_temps_dict.get(jour)
+    peut_sortir = True  # Par défaut
+
     if horaire_du_jour:
         try:
+            import re
             heure_now = datetime.strptime(heure_actuelle, '%H:%M').time()
-            horaires = horaire_du_jour.split()
-            for i in range(0, len(horaires), 2):
-                debut = datetime.strptime(horaires[i].replace('h', ':'), '%H:%M').time()
-                fin = datetime.strptime(horaires[i + 1].replace('h', ':'), '%H:%M').time()
+
+            # Extrait les paires d'horaires comme 08h00-10h00 ou 08h00 10h00
+            horaires = re.findall(r'(\d{1,2}h\d{2})[-\s](\d{1,2}h\d{2})', horaire_du_jour)
+            for debut_str, fin_str in horaires:
+                debut = datetime.strptime(debut_str.replace('h', ':'), '%H:%M').time()
+                fin = datetime.strptime(fin_str.replace('h', ':'), '%H:%M').time()
                 if debut <= heure_now <= fin:
                     peut_sortir = False
                     break
         except Exception as e:
             print("Erreur dans le parsing de l'horaire:", e)
+            peut_sortir = True
 
     return render_template('eleve.html', nom=eleve[0], photo=eleve[1],
                            emploi_du_temps=emploi_du_temps, peut_sortir=peut_sortir)
