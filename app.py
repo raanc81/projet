@@ -118,8 +118,7 @@ def edit_eleve(nom_eleve):
     cursor.execute("SELECT emploi_du_temps FROM eleves WHERE nom_eleve = ?", (nom_eleve,))
     emploi_du_temps = cursor.fetchone()[0]
     conn.close()
-    emploi_du_temps_dict = {jour.split(':')[0].strip(): jour.split(':')[1].strip() for jour in
-                            emploi_du_temps.split(',')}
+    emploi_du_temps_dict = {jour.split(':')[0].strip(): jour.split(':')[1].strip() for jour in emploi_du_temps.split(',')}
     return render_template('edit_eleve.html', nom_eleve=nom_eleve, emploi_du_temps=emploi_du_temps_dict)
 
 @app.route('/generate_qr', methods=['GET', 'POST'])
@@ -186,16 +185,18 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
             continue
 
     horaire_du_jour = emploi_du_temps_dict.get(jour)
-    peut_sortir = True  # Par défaut
+    peut_sortir = True
 
     if horaire_du_jour:
         try:
             heure_now = datetime.strptime(heure_actuelle, '%H:%M').time()
-            # Prend en charge les formats 08h00-10h00 ou 08h00 10h00
-            horaires = re.findall(r'(\d{1,2}h\d{2})[-\s](\d{1,2}h\d{2})', horaire_du_jour)
+            horaires = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|à)?\s*(\d{1,2}[h:]\d{2})', horaire_du_jour)
+            print(f"[DEBUG] Horaire du jour ({jour}): {horaire_du_jour}")
+            print(f"[DEBUG] Créneaux trouvés : {horaires}")
             for debut_str, fin_str in horaires:
-                debut = datetime.strptime(debut_str.replace('h', ':'), '%H:%M').time()
-                fin = datetime.strptime(fin_str.replace('h', ':'), '%H:%M').time()
+                debut = datetime.strptime(debut_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
+                fin = datetime.strptime(fin_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
+                print(f"[DEBUG] Comparaison avec maintenant ({heure_now}) : {debut} - {fin}")
                 if debut <= heure_now <= fin:
                     peut_sortir = False
                     break
