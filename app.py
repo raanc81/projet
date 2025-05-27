@@ -1,43 +1,48 @@
 import os
-import sqlite3
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_sqlalchemy import SQLAlchemy
 import qrcode
 import base64
 from io import BytesIO
-from flask import Flask, render_template, request, redirect, url_for, flash, session
 from urllib.parse import quote, unquote
 from datetime import datetime
 import re
 
 app = Flask(__name__)
 app.secret_key = 'ma_cle_secrete'
-DB_FILE = 'sorties.db'
 UPLOAD_FOLDER = 'static/photos'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-BASE_URL = "https://projet-flrh.onrender.com"
+# Connexion à la base de données PostgreSQL Scalingo
+# Scalingo fournit cette variable d'environnement automatiquement
+DATABASE_URL = os.environ.get('SCALINGO_POSTGRESQL_URL')
 
+# Correction obligatoire : si l'URL commence par 'postgres://', on remplace par 'postgresql://'
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Configuration SQLAlchemy
+if DATABASE_URL:
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+else:
+    # fallback sur SQLite pour développement local
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sorties.db'
+
+
+db = SQLAlchemy(app)
+
+BASE_URL = "https://mon-projet-flask.osc-fr1.scalingo.io"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
-def update_db():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS eleves (
-        nom_eleve TEXT PRIMARY KEY,
-        photo TEXT,
-        emploi_du_temps TEXT
-    )''')
-    cursor.execute("PRAGMA table_info(eleves)")
-    columns = [col[1] for col in cursor.fetchall()]
-    if 'photo' not in columns:
-        cursor.execute("ALTER TABLE eleves ADD COLUMN photo TEXT")
-    if 'emploi_du_temps' not in columns:
-        cursor.execute("ALTER TABLE eleves ADD COLUMN emploi_du_temps TEXT")
-    conn.commit()
-    conn.close()
+class Eleve(db.Model):
+    nom_eleve = db.Column(db.String(100), primary_key=True)
+    photo = db.Column(db.String(200))
+    emploi_du_temps = db.Column(db.Text)
 
-update_db()
+with app.app_context():
+    db.create_all()
 
 @app.route('/')
 def index():
@@ -64,11 +69,7 @@ def logout():
 def admin():
     if not session.get('admin'):
         return redirect(url_for('login'))
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT nom_eleve, photo, emploi_du_temps FROM eleves")
-    eleves = cursor.fetchall()
-    conn.close()
+    eleves = Eleve.query.all()
     return render_template('admin.html', eleves=eleves)
 
 @app.route('/add_eleve', methods=['POST'])
@@ -84,41 +85,32 @@ def add_eleve():
             photo_path = os.path.join(app.config['UPLOAD_FOLDER'], photo.filename)
             photo.save(photo_path)
             photo_path = '/' + photo_path
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO eleves (nom_eleve, photo, emploi_du_temps) VALUES (?, ?, ?)",
-                   (nom_eleve, photo_path, emploi_du_temps))
-    conn.commit()
-    conn.close()
+    eleve = Eleve(nom_eleve=nom_eleve, photo=photo_path, emploi_du_temps=emploi_du_temps)
+    db.session.add(eleve)
+    db.session.commit()
     return redirect(url_for('admin'))
 
 @app.route('/delete_eleve/<nom_eleve>', methods=['POST'])
 def delete_eleve(nom_eleve):
     if not session.get('admin'):
         return redirect(url_for('login'))
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM eleves WHERE nom_eleve = ?", (nom_eleve,))
-    conn.commit()
-    conn.close()
+    eleve = Eleve.query.get(nom_eleve)
+    if eleve:
+        db.session.delete(eleve)
+        db.session.commit()
     return redirect(url_for('admin'))
 
 @app.route('/edit_eleve/<nom_eleve>', methods=['GET', 'POST'])
 def edit_eleve(nom_eleve):
     if not session.get('admin'):
         return redirect(url_for('login'))
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+    eleve = Eleve.query.get(nom_eleve)
     if request.method == 'POST':
         emploi_du_temps = f"Lundi: {request.form['lundi']}, Mardi: {request.form['mardi']}, Mercredi: {request.form['mercredi']}, Jeudi: {request.form['jeudi']}, Vendredi: {request.form['vendredi']}"
-        cursor.execute("UPDATE eleves SET emploi_du_temps = ? WHERE nom_eleve = ?", (emploi_du_temps, nom_eleve))
-        conn.commit()
-        conn.close()
+        eleve.emploi_du_temps = emploi_du_temps
+        db.session.commit()
         return redirect(url_for('admin'))
-    cursor.execute("SELECT emploi_du_temps FROM eleves WHERE nom_eleve = ?", (nom_eleve,))
-    emploi_du_temps = cursor.fetchone()[0]
-    conn.close()
-    emploi_du_temps_dict = {jour.split(':')[0].strip(): jour.split(':')[1].strip() for jour in emploi_du_temps.split(',')}
+    emploi_du_temps_dict = {jour.split(':')[0].strip(): jour.split(':')[1].strip() for jour in eleve.emploi_du_temps.split(',')}
     return render_template('edit_eleve.html', nom_eleve=nom_eleve, emploi_du_temps=emploi_du_temps_dict)
 
 @app.route('/generate_qr', methods=['GET', 'POST'])
@@ -127,37 +119,23 @@ def generate_qr():
         return redirect(url_for('login'))
     if request.method == 'POST':
         nom_eleve = request.form['nom_eleve']
-        conn = sqlite3.connect(DB_FILE)
-        cursor = conn.cursor()
-        cursor.execute("SELECT emploi_du_temps FROM eleves WHERE nom_eleve = ?", (nom_eleve,))
-        result = cursor.fetchone()
-        if result:
-            emploi_du_temps = result[0]
-            emploi_du_temps_encode = quote(emploi_du_temps)
+        eleve = Eleve.query.get(nom_eleve)
+        if eleve:
+            emploi_du_temps_encode = quote(eleve.emploi_du_temps)
             qr_data = f"{BASE_URL}/eleve/{quote(nom_eleve)}/{emploi_du_temps_encode}"
             qr_image = qrcode.make(qr_data)
             qr_io = BytesIO()
             qr_image.save(qr_io, 'PNG')
             qr_io.seek(0)
             qr_code_base64 = base64.b64encode(qr_io.getvalue()).decode('utf-8')
-            conn.close()
             return render_template('generate_qr.html', qr_code=qr_code_base64, nom_eleve=nom_eleve)
-        conn.close()
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT nom_eleve FROM eleves")
-    eleves = cursor.fetchall()
-    conn.close()
+    eleves = Eleve.query.with_entities(Eleve.nom_eleve).all()
     return render_template('generate_qr.html', eleves=eleves)
 
 @app.route('/eleve/<nom_eleve>/<emploi_du_temps>')
 def afficher_eleve(nom_eleve, emploi_du_temps):
     emploi_du_temps = unquote(emploi_du_temps)
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT nom_eleve, photo FROM eleves WHERE nom_eleve = ?", (nom_eleve,))
-    eleve = cursor.fetchone()
-    conn.close()
+    eleve = Eleve.query.get(nom_eleve)
     if not eleve:
         flash("Élève non trouvé.", "danger")
         return redirect(url_for('index'))
@@ -190,13 +168,10 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
     if horaire_du_jour:
         try:
             heure_now = datetime.strptime(heure_actuelle, '%H:%M').time()
-            horaires = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|à)?\s*(\d{1,2}[h:]\d{2})', horaire_du_jour)
-            print(f"[DEBUG] Horaire du jour ({jour}): {horaire_du_jour}")
-            print(f"[DEBUG] Créneaux trouvés : {horaires}")
+            horaires = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|\u00e0)?\s*(\d{1,2}[h:]\d{2})', horaire_du_jour)
             for debut_str, fin_str in horaires:
                 debut = datetime.strptime(debut_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
                 fin = datetime.strptime(fin_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
-                print(f"[DEBUG] Comparaison avec maintenant ({heure_now}) : {debut} - {fin}")
                 if debut <= heure_now <= fin:
                     peut_sortir = False
                     break
@@ -204,8 +179,14 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
             print("Erreur dans le parsing de l'horaire:", e)
             peut_sortir = True
 
-    return render_template('eleve.html', nom=eleve[0], photo=eleve[1],
+    return render_template('eleve.html', nom=eleve.nom_eleve, photo=eleve.photo,
                            emploi_du_temps=emploi_du_temps, peut_sortir=peut_sortir)
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+import os
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
