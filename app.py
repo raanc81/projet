@@ -15,20 +15,15 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Connexion à la base de données PostgreSQL Scalingo
-# Scalingo fournit cette variable d'environnement automatiquement
 DATABASE_URL = os.environ.get('SCALINGO_POSTGRESQL_URL')
 
-# Correction obligatoire : si l'URL commence par 'postgres://', on remplace par 'postgresql://'
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Configuration SQLAlchemy
 if DATABASE_URL:
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 else:
-    # fallback sur SQLite pour développement local
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sorties.db'
-
 
 db = SQLAlchemy(app)
 
@@ -40,9 +35,6 @@ class Eleve(db.Model):
     nom_eleve = db.Column(db.String(100), primary_key=True)
     photo = db.Column(db.String(200))
     emploi_du_temps = db.Column(db.Text)
-
-with app.app_context():
-    db.create_all()
 
 @app.route('/')
 def index():
@@ -182,7 +174,15 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
     return render_template('eleve.html', nom=eleve.nom_eleve, photo=eleve.photo,
                            emploi_du_temps=emploi_du_temps, peut_sortir=peut_sortir)
 
+# ✅ Route temporaire pour initialiser les tables
+@app.route('/init_db')
+def init_db():
+    try:
+        db.create_all()
+        return "✅ Tables créées avec succès sur PostgreSQL Scalingo."
+    except Exception as e:
+        return f"❌ Erreur : {e}"
+
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
