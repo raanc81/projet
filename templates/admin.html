@@ -136,16 +136,16 @@
             <tbody>
                 {% for eleve in eleves %}
                     <tr>
-                        <td>{{ eleve[0] }}</td>
-                        <td><img src="{{ eleve[1] }}" alt="Photo de l'élève"></td>
-                        <td>{{ eleve[2] }}</td>
+                        <td>{{ eleve.nom_eleve }}</td>
+                        <td><img src="{{ eleve.photo }}" alt="Photo de l'élève"></td>
+                        <td>{{ eleve.emploi_du_temps }}</td>
                         <td>
-                            <a href="{{ url_for('edit_eleve', nom_eleve=eleve[0]) }}" class="generate-qr-btn">Modifier</a>
-                            <form action="{{ url_for('delete_eleve', nom_eleve=eleve[0]) }}" method="post" style="display:inline;">
+                            <a href="{{ url_for('edit_eleve', nom_eleve=eleve.nom_eleve) }}" class="generate-qr-btn">Modifier</a>
+                            <form action="{{ url_for('delete_eleve', nom_eleve=eleve.nom_eleve) }}" method="post" style="display:inline;">
                                 <button type="submit" class="delete-btn">Supprimer</button>
                             </form>
                             <form action="{{ url_for('generate_qr') }}" method="post" style="display:inline;">
-                                <input type="hidden" name="nom_eleve" value="{{ eleve[0] }}">
+                                <input type="hidden" name="nom_eleve" value="{{ eleve.nom_eleve }}">
                                 <button type="submit" class="generate-qr-btn">Générer QR Code</button>
                             </form>
                         </td>

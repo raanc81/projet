@@ -80,7 +80,7 @@
             <select name="nom_eleve" required>
                 <option value="">Sélectionnez un élève</option>
                 {% for eleve in eleves %}
-                    <option value="{{ eleve[0] }}">{{ eleve[0] }}</option>
+                    <option value="{{ eleve.nom_eleve }}">{{ eleve.nom_eleve }}</option>
                 {% endfor %}
             </select>
             <button type="submit">Générer le QR Code</button>
