@@ -27,7 +27,7 @@ else:
 
 db = SQLAlchemy(app)
 
-BASE_URL = "https://mon-projet-flask.osc-fr1.scalingo.io"
+BASE_URL = "BASE_URL = "https://gestion-entrer-sortie.osc-fr1.scalingo.io"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
