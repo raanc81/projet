@@ -155,16 +155,16 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
             continue
 
     horaire_du_jour = emploi_du_temps_dict.get(jour)
-    peut_sortir = True
+    peut_sortir = True  # Par défaut on autorise
 
     if horaire_du_jour:
         try:
             heure_now = datetime.strptime(heure_actuelle, '%H:%M').time()
-            horaires = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|\u00e0)?\s*(\d{1,2}[h:]\d{2})', horaire_du_jour)
-            for debut_str, fin_str in horaires:
-                debut = datetime.strptime(debut_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
+            horaires = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|\u00e0|à)\s*(\d{1,2}[h:]\d{2})', horaire_du_jour)
+
+            for _, fin_str in horaires:
                 fin = datetime.strptime(fin_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
-                if debut <= heure_now <= fin:
+                if heure_now < fin:
                     peut_sortir = False
                     break
         except Exception as e:
@@ -174,7 +174,6 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
     return render_template('eleve.html', nom=eleve.nom_eleve, photo=eleve.photo,
                            emploi_du_temps=emploi_du_temps, peut_sortir=peut_sortir)
 
-# ✅ Route temporaire pour initialiser les tables
 @app.route('/init_db')
 def init_db():
     try:
