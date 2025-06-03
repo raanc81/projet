@@ -31,14 +31,17 @@ BASE_URL = "https://gestion-entrer-sortie.osc-fr1.scalingo.io"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
+
 class Eleve(db.Model):
     nom_eleve = db.Column(db.String(100), primary_key=True)
     photo = db.Column(db.String(200))
     emploi_du_temps = db.Column(db.Text)
 
+
 @app.route('/')
 def index():
     return redirect(url_for('login'))
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -52,10 +55,12 @@ def login():
             flash("Identifiant ou mot de passe incorrect", "danger")
     return render_template('login.html')
 
+
 @app.route('/logout')
 def logout():
     session.pop('admin', None)
     return redirect(url_for('login'))
+
 
 @app.route('/admin')
 def admin():
@@ -63,6 +68,7 @@ def admin():
         return redirect(url_for('login'))
     eleves = Eleve.query.all()
     return render_template('admin.html', eleves=eleves)
+
 
 @app.route('/add_eleve', methods=['POST'])
 def add_eleve():
@@ -82,6 +88,7 @@ def add_eleve():
     db.session.commit()
     return redirect(url_for('admin'))
 
+
 @app.route('/delete_eleve/<nom_eleve>', methods=['POST'])
 def delete_eleve(nom_eleve):
     if not session.get('admin'):
@@ -91,6 +98,7 @@ def delete_eleve(nom_eleve):
         db.session.delete(eleve)
         db.session.commit()
     return redirect(url_for('admin'))
+
 
 @app.route('/edit_eleve/<nom_eleve>', methods=['GET', 'POST'])
 def edit_eleve(nom_eleve):
@@ -102,8 +110,10 @@ def edit_eleve(nom_eleve):
         eleve.emploi_du_temps = emploi_du_temps
         db.session.commit()
         return redirect(url_for('admin'))
-    emploi_du_temps_dict = {jour.split(':')[0].strip(): jour.split(':')[1].strip() for jour in eleve.emploi_du_temps.split(',')}
+    emploi_du_temps_dict = {jour.split(':')[0].strip(): jour.split(':')[1].strip() for jour in
+                            eleve.emploi_du_temps.split(',')}
     return render_template('edit_eleve.html', nom_eleve=nom_eleve, emploi_du_temps=emploi_du_temps_dict)
+
 
 @app.route('/generate_qr', methods=['GET', 'POST'])
 def generate_qr():
@@ -123,6 +133,7 @@ def generate_qr():
             return render_template('generate_qr.html', qr_code=qr_code_base64, nom_eleve=nom_eleve)
     eleves = Eleve.query.with_entities(Eleve.nom_eleve).all()
     return render_template('generate_qr.html', eleves=eleves)
+
 
 @app.route('/eleve/<nom_eleve>/<emploi_du_temps>')
 def afficher_eleve(nom_eleve, emploi_du_temps):
@@ -146,35 +157,45 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
     jour = jour_fr.get(jour, jour)
     heure_actuelle = now.strftime('%H:%M')
 
-    emploi_du_temps_dict = {}
-    for item in emploi_du_temps.split(','):
-        try:
-            jour_item, horaires = item.split(':', 1)
-            emploi_du_temps_dict[jour_item.strip()] = horaires.strip()
-        except ValueError:
-            continue
+    # Fonction pour parser l'emploi du temps en dictionnaire
+    def parse_emploi_du_temps(edt_str):
+        edt_dict = {}
+        for item in edt_str.split(','):
+            try:
+                jour_, horaires_ = item.split(':', 1)
+                edt_dict[jour_.strip()] = horaires_.strip()
+            except ValueError:
+                pass
+        return edt_dict
 
+    emploi_du_temps_dict = parse_emploi_du_temps(emploi_du_temps)
     horaire_du_jour = emploi_du_temps_dict.get(jour)
-    peut_sortir = True  # Par défaut on autorise
+
+    peut_sortir = True  # Par défaut on autorise la sortie
 
     if horaire_du_jour:
         try:
             heure_now = datetime.strptime(heure_actuelle, '%H:%M').time()
-            horaires = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|\u00e0|à)\s*(\d{1,2}[h:]\d{2})', horaire_du_jour)
+            # Regex qui gère plusieurs formats de tirets et séparateurs entre heures
+            horaires = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|–|—|à|a)\s*(\d{1,2}[h:]\d{2})', horaire_du_jour,
+                                  flags=re.IGNORECASE)
 
-            for debut_str, fin_str in horaires:
-                debut = datetime.strptime(debut_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
-                fin = datetime.strptime(fin_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
-                # Si l'heure actuelle est entre debut et fin -> on bloque la sortie
-                if debut <= heure_now <= fin:
-                    peut_sortir = False
-                    break
+            if not horaires:
+                peut_sortir = True
+            else:
+                for debut_str, fin_str in horaires:
+                    debut = datetime.strptime(debut_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
+                    fin = datetime.strptime(fin_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
+                    if debut <= heure_now <= fin:
+                        peut_sortir = False
+                        break
         except Exception as e:
-            print("Erreur dans le parsing de l'horaire:", e)
+            print("Erreur parsing horaires:", e)
             peut_sortir = True
 
     return render_template('eleve.html', nom=eleve.nom_eleve, photo=eleve.photo,
                            emploi_du_temps=emploi_du_temps, peut_sortir=peut_sortir)
+
 
 @app.route('/init_db')
 def init_db():
@@ -183,6 +204,7 @@ def init_db():
         return "✅ Tables créées avec succès sur PostgreSQL Scalingo."
     except Exception as e:
         return f"❌ Erreur : {e}"
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
