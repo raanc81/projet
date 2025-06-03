@@ -162,9 +162,11 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
             heure_now = datetime.strptime(heure_actuelle, '%H:%M').time()
             horaires = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|\u00e0|à)\s*(\d{1,2}[h:]\d{2})', horaire_du_jour)
 
-            for _, fin_str in horaires:
+            for debut_str, fin_str in horaires:
+                debut = datetime.strptime(debut_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
                 fin = datetime.strptime(fin_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
-                if heure_now < fin:
+                # Si l'heure actuelle est entre debut et fin -> on bloque la sortie
+                if debut <= heure_now <= fin:
                     peut_sortir = False
                     break
         except Exception as e:
