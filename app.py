@@ -1,39 +1,39 @@
 import os
 import re
-import base64
 import qrcode
+import base64
 from io import BytesIO
 from datetime import datetime
 from urllib.parse import quote, unquote
-
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
+from zoneinfo import ZoneInfo  # Python 3.9+
 
-# === Initialisation de l'application ===
 app = Flask(__name__)
 app.secret_key = 'ma_cle_secrete'
 UPLOAD_FOLDER = 'static/photos'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# === Configuration Base de Données ===
+# --- Configuration BDD ---
 DATABASE_URL = os.environ.get('SCALINGO_POSTGRESQL_URL')
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///sorties.db'
 db = SQLAlchemy(app)
 
+# --- Infos admin & base ---
 BASE_URL = "https://gestion-entrer-sortie.osc-fr1.scalingo.io"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
-# === Modèle Élève ===
+# --- Modèle ---
 class Eleve(db.Model):
     nom_eleve = db.Column(db.String(100), primary_key=True)
     photo = db.Column(db.String(200))
     emploi_du_temps = db.Column(db.Text)
 
-# === Routes ===
+# --- Routes ---
 
 @app.route('/')
 def index():
@@ -149,37 +149,41 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
         flash("Élève non trouvé.", "danger")
         return redirect(url_for('index'))
 
-    jour_actuel = datetime.now().strftime('%A')
+    # --- Heure locale France ---
+    now = datetime.now(ZoneInfo("Europe/Paris"))
+    jour = now.strftime('%A')
     jours_fr = {
         "Monday": "Lundi", "Tuesday": "Mardi", "Wednesday": "Mercredi",
         "Thursday": "Jeudi", "Friday": "Vendredi", "Saturday": "Samedi", "Sunday": "Dimanche"
     }
-    jour = jours_fr.get(jour_actuel, jour_actuel)
-    heure = datetime.now().strftime('%H:%M')
-    edt = {}
+    jour = jours_fr.get(jour, jour)
+    heure_actuelle = now.strftime('%H:%M')
 
+    emploi_du_temps_dict = {}
     for item in emploi_du_temps.split(','):
         try:
-            j, h = item.split(':', 1)
-            edt[j.strip()] = h.strip()
+            jour_, horaires_ = item.split(':', 1)
+            emploi_du_temps_dict[jour_.strip()] = horaires_.strip()
         except ValueError:
-            continue
+            pass
 
-    horaire = edt.get(jour)
+    horaire_du_jour = emploi_du_temps_dict.get(jour)
     peut_sortir = True
 
-    if horaire:
+    if horaire_du_jour:
         try:
-            heure_actuelle = datetime.strptime(heure, '%H:%M').time()
-            plages = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|à|a)?\s*(\d{1,2}[h:]\d{2})', horaire)
-            for debut_str, fin_str in plages:
-                debut = datetime.strptime(debut_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
-                fin = datetime.strptime(fin_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
-                if debut <= heure_actuelle <= fin:
+            heure_now = datetime.strptime(heure_actuelle, '%H:%M').time()
+            horaire_du_jour = horaire_du_jour.replace('–', '-').replace('—', '-').replace('à', '-').replace('a', '-').replace('h', ':').replace('H', ':')
+            horaires = re.findall(r'(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})', horaire_du_jour)
+            for debut_str, fin_str in horaires:
+                debut = datetime.strptime(debut_str, '%H:%M').time()
+                fin = datetime.strptime(fin_str, '%H:%M').time()
+                if debut <= heure_now <= fin:
                     peut_sortir = False
                     break
         except Exception as e:
             print("[DEBUG] Erreur parsing horaires:", e)
+            peut_sortir = True
 
     return render_template('eleve.html', nom=eleve.nom_eleve, photo=eleve.photo,
                            emploi_du_temps=emploi_du_temps, peut_sortir=peut_sortir)
