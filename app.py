@@ -1,37 +1,39 @@
 import os
+import re
+import base64
+import qrcode
+from io import BytesIO
+from datetime import datetime
+from urllib.parse import quote, unquote
+
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
-import qrcode
-import base64
-from io import BytesIO
-from urllib.parse import quote, unquote
-from datetime import datetime
-import re
 
+# === Initialisation de l'application ===
 app = Flask(__name__)
 app.secret_key = 'ma_cle_secrete'
 UPLOAD_FOLDER = 'static/photos'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# === Configuration Base de Données ===
 DATABASE_URL = os.environ.get('SCALINGO_POSTGRESQL_URL')
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-if DATABASE_URL:
-    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sorties.db'
-
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///sorties.db'
 db = SQLAlchemy(app)
 
 BASE_URL = "https://gestion-entrer-sortie.osc-fr1.scalingo.io"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
+# === Modèle Élève ===
 class Eleve(db.Model):
     nom_eleve = db.Column(db.String(100), primary_key=True)
     photo = db.Column(db.String(200))
     emploi_du_temps = db.Column(db.Text)
+
+# === Routes ===
 
 @app.route('/')
 def index():
@@ -40,13 +42,10 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        if request.form.get('username') == ADMIN_USERNAME and request.form.get('password') == ADMIN_PASSWORD:
             session['admin'] = True
             return redirect(url_for('admin'))
-        else:
-            flash("Identifiant ou mot de passe incorrect", "danger")
+        flash("Identifiant ou mot de passe incorrect", "danger")
     return render_template('login.html')
 
 @app.route('/logout')
@@ -65,16 +64,25 @@ def admin():
 def add_eleve():
     if not session.get('admin'):
         return redirect(url_for('login'))
-    nom_eleve = request.form['nom_eleve']
-    emploi_du_temps = f"Lundi: {request.form['lundi']}, Mardi: {request.form['mardi']}, Mercredi: {request.form['mercredi']}, Jeudi: {request.form['jeudi']}, Vendredi: {request.form['vendredi']}"
+
+    nom = request.form['nom_eleve']
+    emploi = ", ".join([
+        f"Lundi: {request.form['lundi']}",
+        f"Mardi: {request.form['mardi']}",
+        f"Mercredi: {request.form['mercredi']}",
+        f"Jeudi: {request.form['jeudi']}",
+        f"Vendredi: {request.form['vendredi']}"
+    ])
+
     photo_path = None
     if 'photo' in request.files:
         photo = request.files['photo']
         if photo.filename:
-            photo_path = os.path.join(app.config['UPLOAD_FOLDER'], photo.filename)
-            photo.save(photo_path)
-            photo_path = '/' + photo_path
-    eleve = Eleve(nom_eleve=nom_eleve, photo=photo_path, emploi_du_temps=emploi_du_temps)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], photo.filename)
+            photo.save(filepath)
+            photo_path = '/' + filepath
+
+    eleve = Eleve(nom_eleve=nom, photo=photo_path, emploi_du_temps=emploi)
     db.session.add(eleve)
     db.session.commit()
     return redirect(url_for('admin'))
@@ -94,32 +102,44 @@ def edit_eleve(nom_eleve):
     if not session.get('admin'):
         return redirect(url_for('login'))
     eleve = Eleve.query.get(nom_eleve)
+    if not eleve:
+        flash("Élève introuvable.", "danger")
+        return redirect(url_for('admin'))
+
     if request.method == 'POST':
-        emploi_du_temps = f"Lundi: {request.form['lundi']}, Mardi: {request.form['mardi']}, Mercredi: {request.form['mercredi']}, Jeudi: {request.form['jeudi']}, Vendredi: {request.form['vendredi']}"
-        eleve.emploi_du_temps = emploi_du_temps
+        emploi = ", ".join([
+            f"Lundi: {request.form['lundi']}",
+            f"Mardi: {request.form['mardi']}",
+            f"Mercredi: {request.form['mercredi']}",
+            f"Jeudi: {request.form['jeudi']}",
+            f"Vendredi: {request.form['vendredi']}"
+        ])
+        eleve.emploi_du_temps = emploi
         db.session.commit()
         return redirect(url_for('admin'))
-    emploi_du_temps_dict = {jour.split(':')[0].strip(): jour.split(':')[1].strip() for jour in eleve.emploi_du_temps.split(',')}
-    return render_template('edit_eleve.html', nom_eleve=nom_eleve, emploi_du_temps=emploi_du_temps_dict)
+
+    edt = {j.split(':')[0].strip(): j.split(':')[1].strip() for j in eleve.emploi_du_temps.split(',')}
+    return render_template('edit_eleve.html', nom_eleve=eleve.nom_eleve, emploi_du_temps=edt)
 
 @app.route('/generate_qr', methods=['GET', 'POST'])
 def generate_qr():
     if not session.get('admin'):
         return redirect(url_for('login'))
     if request.method == 'POST':
-        nom_eleve = request.form['nom_eleve']
-        eleve = Eleve.query.get(nom_eleve)
+        nom = request.form['nom_eleve']
+        eleve = Eleve.query.get(nom)
         if eleve:
-            emploi_du_temps_encode = quote(eleve.emploi_du_temps)
-            qr_data = f"{BASE_URL}/eleve/{quote(nom_eleve)}/{emploi_du_temps_encode}"
-            qr_image = qrcode.make(qr_data)
-            qr_io = BytesIO()
-            qr_image.save(qr_io, 'PNG')
-            qr_io.seek(0)
-            qr_code_base64 = base64.b64encode(qr_io.getvalue()).decode('utf-8')
-            return render_template('generate_qr.html', qr_code=qr_code_base64, nom_eleve=nom_eleve)
-    eleves = Eleve.query.with_entities(Eleve.nom_eleve).all()
-    return render_template('generate_qr.html', eleves=eleves)
+            edt_encoded = quote(eleve.emploi_du_temps)
+            data = f"{BASE_URL}/eleve/{quote(nom)}/{edt_encoded}"
+            qr = qrcode.make(data)
+            io_img = BytesIO()
+            qr.save(io_img, 'PNG')
+            io_img.seek(0)
+            qr_base64 = base64.b64encode(io_img.read()).decode('utf-8')
+            return render_template('generate_qr.html', qr_code=qr_base64, nom_eleve=nom)
+
+    noms = Eleve.query.with_entities(Eleve.nom_eleve).all()
+    return render_template('generate_qr.html', eleves=noms)
 
 @app.route('/eleve/<nom_eleve>/<emploi_du_temps>')
 def afficher_eleve(nom_eleve, emploi_du_temps):
@@ -129,62 +149,37 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
         flash("Élève non trouvé.", "danger")
         return redirect(url_for('index'))
 
-    now = datetime.now()
-    jour = now.strftime('%A')
-    jour_fr = {
-        "Monday": "Lundi",
-        "Tuesday": "Mardi",
-        "Wednesday": "Mercredi",
-        "Thursday": "Jeudi",
-        "Friday": "Vendredi",
-        "Saturday": "Samedi",
-        "Sunday": "Dimanche"
+    jour_actuel = datetime.now().strftime('%A')
+    jours_fr = {
+        "Monday": "Lundi", "Tuesday": "Mardi", "Wednesday": "Mercredi",
+        "Thursday": "Jeudi", "Friday": "Vendredi", "Saturday": "Samedi", "Sunday": "Dimanche"
     }
-    jour = jour_fr.get(jour, jour)
-    heure_actuelle = now.strftime('%H:%M')
+    jour = jours_fr.get(jour_actuel, jour_actuel)
+    heure = datetime.now().strftime('%H:%M')
+    edt = {}
 
-    def parse_emploi_du_temps(edt_str):
-        edt_dict = {}
-        for item in edt_str.split(','):
-            try:
-                jour_, horaires_ = item.split(':', 1)
-                edt_dict[jour_.strip()] = horaires_.strip()
-            except ValueError:
-                pass
-        return edt_dict
+    for item in emploi_du_temps.split(','):
+        try:
+            j, h = item.split(':', 1)
+            edt[j.strip()] = h.strip()
+        except ValueError:
+            continue
 
-    emploi_du_temps_dict = parse_emploi_du_temps(emploi_du_temps)
-    horaire_du_jour = emploi_du_temps_dict.get(jour)
-
-    print(f"[DEBUG] Jour: {jour}")
-    print(f"[DEBUG] Horaire du jour brut: {horaire_du_jour}")
-    print(f"[DEBUG] Heure actuelle: {heure_actuelle}")
-
+    horaire = edt.get(jour)
     peut_sortir = True
 
-    if horaire_du_jour:
+    if horaire:
         try:
-            heure_now = datetime.strptime(heure_actuelle, '%H:%M').time()
-            horaires = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|–|—|à|a)\s*(\d{1,2}[h:]\d{2})', horaire_du_jour, flags=re.IGNORECASE)
-            print(f"[DEBUG] Plages horaires extraites: {horaires}")
-
-            if not horaires:
-                print("[DEBUG] Aucun horaire valide trouvé, sortie autorisée.")
-                peut_sortir = True
-            else:
-                for debut_str, fin_str in horaires:
-                    debut = datetime.strptime(debut_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
-                    fin = datetime.strptime(fin_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
-                    print(f"[DEBUG] Vérification plage: {debut} - {fin}, heure actuelle: {heure_now}")
-                    if debut <= heure_now <= fin:
-                        print("[DEBUG] Élève en cours, sortie refusée.")
-                        peut_sortir = False
-                        break
-                else:
-                    print("[DEBUG] Élève hors cours, sortie autorisée.")
+            heure_actuelle = datetime.strptime(heure, '%H:%M').time()
+            plages = re.findall(r'(\d{1,2}[h:]\d{2})\s*(?:-|à|a)?\s*(\d{1,2}[h:]\d{2})', horaire)
+            for debut_str, fin_str in plages:
+                debut = datetime.strptime(debut_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
+                fin = datetime.strptime(fin_str.replace('h', ':').replace('H', ':'), '%H:%M').time()
+                if debut <= heure_actuelle <= fin:
+                    peut_sortir = False
+                    break
         except Exception as e:
-            print("[DEBUG] Exception lors du parsing des horaires:", e)
-            peut_sortir = True
+            print("[DEBUG] Erreur parsing horaires:", e)
 
     return render_template('eleve.html', nom=eleve.nom_eleve, photo=eleve.photo,
                            emploi_du_temps=emploi_du_temps, peut_sortir=peut_sortir)
@@ -193,9 +188,9 @@ def afficher_eleve(nom_eleve, emploi_du_temps):
 def init_db():
     try:
         db.create_all()
-        return "✅ Tables créées avec succès sur PostgreSQL Scalingo."
+        return "✅ Base de données initialisée avec succès."
     except Exception as e:
-        return f"❌ Erreur : {e}"
+        return f"❌ Erreur d'initialisation : {e}"
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
