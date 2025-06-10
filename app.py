@@ -23,7 +23,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///sorties.db'
 db = SQLAlchemy(app)
 
 # --- Infos admin & base ---
-BASE_URL = "https://gestion-entrer-sortie.osc-fr1.scalingo.io"
+BASE_URL = "https://gestionsortieeleve.osc-fr1.scalingo.io"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
